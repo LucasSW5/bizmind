@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BizMind — Your AI Business Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Epilogue:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f5f0e8;
+      --surface: #faf7f2;
+      --dark: #1a1612;
+      --mid: #3d3530;
+      --muted: #9a8f85;
+      --border: #e0d8cc;
+      --accent: #c84b2f;
+      --accent2: #e8a020;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--dark);
+      font-family: 'Epilogue', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(200,75,47,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(232,160,32,0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── SCREENS ── */
+    .screen { display: none; min-height: 100vh; position: relative; z-index: 1; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── LANDING ── */
+    #screen-landing {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .landing-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 52px 48px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.06);
+    }
+
+    .landing-logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 2.4rem;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .landing-logo span { color: var(--accent); }
+
+    .landing-tagline {
+      font-size: 0.8rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    .landing-perks {
+      text-align: left;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .perk {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--mid);
+      line-height: 1.5;
+    }
+
+    .perk-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+    .tab-row {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background: none;
+      border: none;
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .tab.active { background: var(--accent); color: white; font-weight: 500; }
+
+    .field { margin-bottom: 14px; text-align: left; }
+    .field label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--dark);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.85rem;
+      padding: 11px 14px;
+      border-radius: 5px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus { border-color: var(--accent); }
+
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 13px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-primary:hover { opacity: 0.87; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .auth-msg {
+      font-size: 0.75rem;
+      margin-top: 12px;
+      min-height: 20px;
+      color: var(--accent);
+    }
+
+    .auth-msg.error { color: #c0392b; }
+    .auth-msg.success { color: #27ae60; }
+
+    /* ── PAYWALL ── */
+    #screen-paywall {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .paywall-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 52px 48px;
+      width: 100%;
+      max-width: 460px;
+      text-align: center;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.06);
+    }
+
+    .price-tag {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: var(--dark);
+      line-height: 1;
+      margin: 20px 0 4px;
+    }
+
+    .price-tag sup { font-size: 1.4rem; vertical-align: super; }
+    .price-period { font-size: 0.78rem; color: var(--muted); margin-bottom: 28px; }
+
+    .paywall-features {
+      text-align: left;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--mid);
+    }
+
+    .feature-check { color: var(--accent); font-weight: 700; }
+
+    .btn-stripe {
+      display: block;
+      width: 100%;
+      background: var(--dark);
+      color: var(--bg);
+      border: none;
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      font-size: 1.05rem;
+      padding: 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.2s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-stripe:hover { opacity: 0.85; }
+
+    .paywall-note {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 14px;
+    }
+
+    .btn-signout-small {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.72rem;
+      cursor: pointer;
+      margin-top: 20px;
+      text-decoration: underline;
+    }
+
+    /* ── APP ── */
+    #screen-app {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1.4rem;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span { color: var(--accent); }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-email {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .api-setup {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .api-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .api-dot.connected { background: #4caf50; }
+
+    .api-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--dark);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.75rem;
+      padding: 7px 11px;
+      border-radius: 4px;
+      outline: none;
+      width: 200px;
+      transition: border-color 0.2s;
+    }
+
+    .api-input:focus { border-color: var(--accent); }
+
+    .btn-signout {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.72rem;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-signout:hover { border-color: var(--accent); color: var(--accent); }
+
+    .app-body {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 61px);
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section { padding: 18px; border-bottom: 1px solid var(--border); }
+    .sidebar-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 10px; font-weight: 500; }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: 6px;
+      padding: 18px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(200,75,47,0.03); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-icon { font-size: 1.4rem; margin-bottom: 6px; display: block; }
+    .upload-text { font-size: 0.73rem; color: var(--muted); line-height: 1.5; }
+    .upload-text strong { color: var(--dark); font-weight: 500; }
+
+    .data-preview { flex: 1; overflow-y: auto; padding: 14px 18px; }
+
+    .data-file {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 7px;
+      font-size: 0.75rem;
+    }
+
+    .data-file-name { flex: 1; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .data-file-remove { cursor: pointer; color: var(--muted); transition: color 0.2s; }
+    .data-file-remove:hover { color: var(--accent); }
+
+    .quick-prompts { padding: 14px 18px; border-top: 1px solid var(--border); }
+
+    .quick-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--mid);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.72rem;
+      padding: 8px 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 5px;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+
+    .quick-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(200,75,47,0.03); }
+
+    /* CHAT */
+    .chat-area { display: flex; flex-direction: column; overflow: hidden; }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      opacity: 0.55;
+    }
+
+    .empty-state h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.7rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p { font-size: 0.82rem; color: var(--muted); max-width: 340px; line-height: 1.7; }
+
+    .message { display: flex; gap: 10px; max-width: 76%; animation: fadeUp 0.25s ease; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.assistant { align-self: flex-start; }
+
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; flex-shrink: 0; margin-top: 2px;
+    }
+
+    .message.user .avatar { background: var(--dark); color: white; font-weight: 500; }
+    .message.assistant .avatar { background: var(--accent); color: white; font-family: 'Playfair Display', serif; font-weight: 700; }
+
+    .bubble {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.83rem;
+      line-height: 1.75;
+    }
+
+    .message.user .bubble { background: var(--dark); color: #f5f0e8; border-bottom-right-radius: 3px; }
+    .message.assistant .bubble { background: white; color: var(--dark); border: 1px solid var(--border); border-bottom-left-radius: 3px; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .bubble strong { font-weight: 500; color: var(--accent); }
+    .bubble ul { margin: 8px 0 8px 16px; }
+    .bubble li { margin-bottom: 3px; }
+
+    .typing { display: flex; gap: 4px; padding: 14px 16px; align-items: center; }
+    .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bounce 1.2s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-5px); opacity: 1; }
+    }
+
+    .chat-input-area {
+      padding: 16px 28px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+
+    .input-row { display: flex; gap: 10px; align-items: flex-end; }
+
+    .chat-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      color: var(--dark);
+      font-family: 'Epilogue', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 300;
+      padding: 11px 15px;
+      border-radius: 7px;
+      outline: none;
+      resize: none;
+      min-height: 46px;
+      max-height: 130px;
+      transition: border-color 0.2s;
+      line-height: 1.5;
+    }
+
+    .chat-input:focus { border-color: var(--accent); }
+
+    .send-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      width: 46px; height: 46px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: opacity 0.2s, transform 0.1s;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+    .input-hint { font-size: 0.65rem; color: var(--muted); margin-top: 7px; text-align: center; }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    @media (max-width: 680px) {
+      .app-body { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .landing-box, .paywall-box { padding: 36px 24px; }
+      .api-input { width: 150px; }
+      .user-email { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── LANDING / AUTH ── -->
+<div id="screen-landing" class="screen active">
+  <div class="landing-box">
+    <div class="landing-logo">Biz<span>Mind</span></div>
+    <div class="landing-tagline">Your AI Business Assistant</div>
+
+    <div class="landing-perks">
+      <div class="perk"><span class="perk-icon">📊</span> Upload any report, CSV, or sales data</div>
+      <div class="perk"><span class="perk-icon">💬</span> Ask questions in plain English</div>
+      <div class="perk"><span class="perk-icon">🎯</span> Get clear answers + action points</div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="tab" onclick="switchTab('signup')">Create Account</button>
+    </div>
+
+    <div id="auth-form">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@yourbusiness.com"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') handleAuth()"/>
+      </div>
+      <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Sign In →</button>
+      <div class="auth-msg" id="auth-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── PAYWALL ── -->
+<div id="screen-paywall" class="screen">
+  <div class="paywall-box">
+    <div class="landing-logo" style="margin-bottom:6px">Biz<span>Mind</span></div>
+    <p style="font-size:0.8rem; color:var(--muted); margin-bottom:8px;">One step away from your AI business brain.</p>
+
+    <div class="price-tag"><sup>$</sup>49</div>
+    <div class="price-period">per month · cancel anytime</div>
+
+    <div class="paywall-features">
+      <div class="feature"><span class="feature-check">✓</span> Unlimited AI conversations about your data</div>
+      <div class="feature"><span class="feature-check">✓</span> Upload CSV, PDF, and text reports</div>
+      <div class="feature"><span class="feature-check">✓</span> Plain-English insights + action points</div>
+      <div class="feature"><span class="feature-check">✓</span> Ask follow-up questions like a real advisor</div>
+    </div>
+
+    <a href="https://buy.stripe.com/test_7sY6oA0HVdTm6768Ok14400" class="btn-stripe" target="_blank" onclick="stripeClicked()">
+      Subscribe & Get Started →
+    </a>
+    <div class="paywall-note">Secure payment via Stripe. You'll be redirected back after payment.</div>
+    <div style="margin-top:14px;">
+      <button class="btn-signout-small" onclick="checkPaymentManually()">I've already paid — click here</button>
+    </div>
+    <button class="btn-signout-small" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="screen-app" class="screen">
+  <header>
+    <div>
+      <div class="logo">Biz<span>Mind</span></div>
+    </div>
+    <div class="header-right">
+      <span class="user-email" id="user-email-display"></span>
+      <div class="api-setup">
+        <div class="api-dot" id="api-dot"></div>
+        <input type="password" class="api-input" id="api-key" placeholder="Anthropic API key..." oninput="checkApiKey()"/>
+      </div>
+      <button class="btn-signout" onclick="signOut()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">// Upload Data</div>
+        <div class="upload-zone" id="upload-zone">
+          <input type="file" id="file-input" accept=".csv,.txt,.pdf,.xlsx" multiple onchange="handleFiles(this.files)"/>
+          <span class="upload-icon">📊</span>
+          <div class="upload-text"><strong>Drop files here</strong><br/>CSV, TXT, PDF reports</div>
+        </div>
+      </div>
+
+      <div class="data-preview" id="file-list">
+        <div class="sidebar-label">// Loaded Data</div>
+        <div style="font-size:0.73rem; color:var(--muted); text-align:center; margin-top:16px;">No files yet</div>
+      </div>
+
+      <div class="quick-prompts">
+        <div class="sidebar-label">// Quick Questions</div>
+        <button class="quick-btn" onclick="quickPrompt('How did my business perform recently? Give me an honest assessment.')">📈 How am I performing?</button>
+        <button class="quick-btn" onclick="quickPrompt('What are my top 3 best performing products or revenue sources?')">🏆 Top performers?</button>
+        <button class="quick-btn" onclick="quickPrompt('Where am I losing money or wasting spend? Be specific.')">🔍 Where am I losing money?</button>
+        <button class="quick-btn" onclick="quickPrompt('Give me a simple health check of my business right now.')">💊 Business health check</button>
+        <button class="quick-btn" onclick="quickPrompt('What one thing should I focus on this week to grow revenue?')">🎯 What to focus on?</button>
+      </div>
+    </div>
+
+    <div class="chat-area">
+      <div class="chat-messages" id="chat-messages">
+        <div class="empty-state" id="empty-state">
+          <h2>Good to see you.</h2>
+          <p>Upload your data on the left, then ask me anything about your business in plain English.</p>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="input-row">
+          <textarea class="chat-input" id="chat-input" placeholder="Ask anything... e.g. 'Was last month good?'" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="send-btn" onclick="sendMessage()">↑</button>
+        </div>
+        <div class="input-hint">Shift+Enter for new line · You can also paste data directly into the chat</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── SUPABASE INIT ──
+  const { createClient } = supabase;
+  const sb = createClient(
+    'https://agwyuowiwrofsftxkimi.supabase.co',
+    'sb_publishable_OJ7mxRiKaf3XZhTQFvcGPA_8V7Fp23S'
+  );
+
+  // ── STATE ──
+  let currentUser = null;
+  let loadedData = [];
+  let chatHistory = [];
+  let isLoading = false;
+  let authMode = 'login';
+
+  // ── INIT ──
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) {
+      currentUser = session.user;
+      await routeUser();
+    } else {
+      showScreen('landing');
+    }
+
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        currentUser = session.user;
+        await routeUser();
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        showScreen('landing');
+      }
+    });
+  }
+
+  async function routeUser() {
+    // Check if user has paid - stored in Supabase user metadata
+    const paid = currentUser?.user_metadata?.paid === true;
+    if (paid) {
+      showApp();
+    } else {
+      // Also check localStorage as fallback after Stripe redirect
+      const localPaid = localStorage.getItem('bm_paid_' + currentUser.id);
+      if (localPaid) {
+        await markUserPaid();
+        showApp();
+      } else {
+        showScreen('paywall');
+      }
+    }
+  }
+
+  function showApp() {
+    document.getElementById('user-email-display').textContent = currentUser?.email || '';
+    showScreen('app');
+  }
+
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+  }
+
+  // ── AUTH ──
+  function switchTab(mode) {
+    authMode = mode;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && mode === 'login') || (i === 1 && mode === 'signup'));
+    });
+    document.getElementById('auth-btn').textContent = mode === 'login' ? 'Sign In →' : 'Create Account →';
+    setAuthMsg('');
+  }
+
+  async function handleAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const btn = document.getElementById('auth-btn');
+
+    if (!email || !password) return setAuthMsg('Please fill in both fields.', 'error');
+    if (password.length < 6) return setAuthMsg('Password must be at least 6 characters.', 'error');
+
+    btn.disabled = true;
+    setAuthMsg('Please wait...');
+
+    try {
+      let result;
+      if (authMode === 'login') {
+        result = await sb.auth.signInWithPassword({ email, password });
+      } else {
+        result = await sb.auth.signUp({ email, password });
+      }
+
+      if (result.error) {
+        setAuthMsg(result.error.message, 'error');
+      } else if (authMode === 'signup') {
+        setAuthMsg('Account created! Check your email to confirm, then sign in.', 'success');
+      }
+    } catch (e) {
+      setAuthMsg('Something went wrong. Try again.', 'error');
+    }
+
+    btn.disabled = false;
+  }
+
+  function setAuthMsg(msg, type = '') {
+    const el = document.getElementById('auth-msg');
+    el.textContent = msg;
+    el.className = 'auth-msg ' + type;
+  }
+
+  async function signOut() {
+    await sb.auth.signOut();
+    chatHistory = [];
+    loadedData = [];
+    showScreen('landing');
+  }
+
+  // ── STRIPE / PAYMENT ──
+  function stripeClicked() {
+    // Store that they clicked pay - they'll confirm manually
+    if (currentUser) {
+      localStorage.setItem('bm_stripe_clicked_' + currentUser.id, 'true');
+    }
+  }
+
+  async function checkPaymentManually() {
+    // In production you'd verify via webhook - for MVP we trust the user
+    // and mark them as paid. Add Stripe webhook verification later.
+    if (currentUser) {
+      await markUserPaid();
+      showApp();
+    }
+  }
+
+  async function markUserPaid() {
+    await sb.auth.updateUser({ data: { paid: true } });
+    localStorage.setItem('bm_paid_' + currentUser.id, 'true');
+  }
+
+  // ── FILES ──
+  function handleFiles(files) {
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        loadedData.push({ name: file.name, size: file.size, content: e.target.result });
+        renderFileList();
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function renderFileList() {
+    const el = document.getElementById('file-list');
+    if (loadedData.length === 0) {
+      el.innerHTML = '<div class="sidebar-label">// Loaded Data</div><div style="font-size:0.73rem;color:var(--muted);text-align:center;margin-top:16px;">No files yet</div>';
+      return;
+    }
+    el.innerHTML = '<div class="sidebar-label">// Loaded Data</div>' +
+      loadedData.map((f, i) => `
+        <div class="data-file">
+          <span>${f.name.endsWith('.csv') ? '📊' : '📄'}</span>
+          <span class="data-file-name">${f.name}</span>
+          <span style="font-size:0.65rem;color:var(--muted)">${(f.size/1024).toFixed(1)}kb</span>
+          <span class="data-file-remove" onclick="removeFile(${i})">✕</span>
+        </div>`).join('');
+  }
+
+  function removeFile(i) { loadedData.splice(i, 1); renderFileList(); }
+
+  const zone = document.getElementById('upload-zone');
+  if (zone) {
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+  }
+
+  // ── CHAT ──
+  function checkApiKey() {
+    const key = document.getElementById('api-key').value.trim();
+    document.getElementById('api-dot').className = 'api-dot' + (key.startsWith('sk-ant') ? ' connected' : '');
+  }
+
+  function quickPrompt(text) {
+    document.getElementById('chat-input').value = text;
+    sendMessage();
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+  }
+
+  async function sendMessage() {
+    if (isLoading) return;
+    const input = document.getElementById('chat-input');
+    const apiKey = document.getElementById('api-key').value.trim();
+    const text = input.value.trim();
+
+    if (!text) return;
+    if (!apiKey) { addMessage('assistant', '⚠️ Please paste your Anthropic API key in the top right to get started.'); return; }
+
+    document.getElementById('empty-state').style.display = 'none';
+    addMessage('user', text);
+    chatHistory.push({ role: 'user', content: text });
+    input.value = '';
+    input.style.height = 'auto';
+
+    isLoading = true;
+    document.getElementById('send-btn').disabled = true;
+    const typingId = addTyping();
+
+    let dataContext = '';
+    if (loadedData.length > 0) {
+      dataContext = '\n\nBusiness data uploaded by the owner:\n\n' +
+        loadedData.map(f => `--- ${f.name} ---\n${f.content.slice(0, 8000)}`).join('\n\n');
+    }
+
+    const systemPrompt = `You are BizMind, a sharp and friendly AI business advisor for small business owners.
+
+Your job: help them understand their data and make better decisions — in plain, simple language. No jargon.
+
+When analysing data:
+- Give direct answers first, with specific numbers
+- Highlight what's good and what needs attention  
+- End with 1-2 concrete action points they can do TODAY
+- Sound like a trusted advisor, not a consultant report
+- Keep responses concise and scannable
+${dataContext}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: systemPrompt,
+          messages: chatHistory
+        })
+      });
+
+      const data = await res.json();
+      removeTyping(typingId);
+
+      if (data.error) {
+        addMessage('assistant', `⚠️ API Error: ${data.error.message}`);
+      } else {
+        const reply = data.content?.[0]?.text || 'No response received.';
+        chatHistory.push({ role: 'assistant', content: reply });
+        addMessage('assistant', reply);
+      }
+    } catch (err) {
+      removeTyping(typingId);
+      addMessage('assistant', `⚠️ Error: ${err.message}`);
+    }
+
+    isLoading = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+
+  function addMessage(role, text) {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = role === 'user' ? 'You' : 'B';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = formatText(text);
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function addTyping() {
+    const container = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = 'message assistant';
+    const id = 'typing-' + Date.now();
+    div.id = id;
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = 'B';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+    div.appendChild(avatar);
+    div.appendChild(bubble);
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return id;
+  }
+
+  function removeTyping(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+  }
+
+  function formatText(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^- (.+)/gm, '<li>$1</li>')
+      .replace(/\n\n/g, '<br/><br/>')
+      .replace(/\n/g, '<br/>');
+  }
+
+  init();
+</script>
+</body>
+</html>
